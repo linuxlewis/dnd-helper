@@ -15,6 +15,7 @@ from app.models import (  # noqa: F401 - import to register with SQLModel metada
     Item,
 )
 from app.routers import (
+    characters_router,
     currency_router,
     history_router,
     inventories_router,
@@ -49,6 +50,7 @@ app.include_router(inventories_router)
 app.include_router(items_router)
 app.include_router(currency_router)
 app.include_router(history_router)
+app.include_router(characters_router)
 
 
 @app.get("/health")
