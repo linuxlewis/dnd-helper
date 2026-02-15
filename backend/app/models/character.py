@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-# D&D 5e XP thresholds for each level
+# D&D 5e XP thresholds for each level (descending for lookup)
 XP_THRESHOLDS: list[tuple[int, int]] = [
     (355000, 20),
     (305000, 19),
@@ -59,6 +59,8 @@ XP_FOR_LEVEL: list[int] = [
     355000,
 ]
 
+ABILITY_NAMES = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]
+
 
 def xp_to_level(xp: int) -> int:
     """Compute level from XP using 5e thresholds."""
@@ -83,10 +85,10 @@ class CharacterBase(SQLModel):
 
     name: str = Field(min_length=1, description="Character name")
     race: str | None = Field(default=None, description="Character race")
-    char_class: str | None = Field(default=None, description="Character class")
-    hp_max: int = Field(default=10, ge=0, description="Maximum hit points")
-    hp_current: int = Field(default=10, ge=0, description="Current hit points")
-    ac: int = Field(default=10, ge=0, description="Base armor class")
+    character_class: str | None = Field(default=None, description="Character class")
+    max_hp: int = Field(default=10, ge=0, description="Maximum hit points")
+    current_hp: int = Field(default=10, description="Current hit points")
+    base_ac: int = Field(default=10, ge=0, description="Base armor class")
     speed: int = Field(default=30, ge=0, description="Movement speed in feet")
     xp: int = Field(default=0, ge=0, description="Experience points")
 
@@ -117,10 +119,10 @@ class CharacterCreate(SQLModel):
 
     name: str = Field(min_length=1, description="Character name")
     race: str | None = Field(default=None)
-    char_class: str | None = Field(default=None)
-    hp_max: int = Field(default=10, ge=0)
-    hp_current: int = Field(default=10, ge=0)
-    ac: int = Field(default=10, ge=0)
+    character_class: str | None = Field(default=None)
+    max_hp: int = Field(default=10, ge=0)
+    current_hp: int = Field(default=10)
+    base_ac: int = Field(default=10, ge=0)
     speed: int = Field(default=30, ge=0)
     xp: int = Field(default=0, ge=0)
     strength: int = Field(default=10, ge=1, le=30)
@@ -131,6 +133,14 @@ class CharacterCreate(SQLModel):
     charisma: int = Field(default=10, ge=1, le=30)
 
 
+class AbilityScoreDetail(SQLModel):
+    """Detail for a single ability score with base, effective, and modifier."""
+
+    base: int
+    effective: int
+    modifier: int
+
+
 class CharacterRead(CharacterBase):
     """Schema for character response with computed fields."""
 
@@ -138,6 +148,9 @@ class CharacterRead(CharacterBase):
     inventory_id: UUID
     created_at: datetime
     updated_at: datetime
+
+    # Structured ability scores (base, effective, modifier)
+    ability_scores: dict[str, AbilityScoreDetail] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -161,33 +174,26 @@ class CharacterRead(CharacterBase):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def strength_modifier(self) -> int:
-        return ability_modifier(self.strength)
+    def effective_ac(self) -> int:
+        return self.base_ac
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def dexterity_modifier(self) -> int:
-        return ability_modifier(self.dexterity)
+    def build_ability_scores(self, effective_scores: dict[str, int] | None = None) -> None:
+        """Populate ability_scores dict with base/effective/modifier for each ability.
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def constitution_modifier(self) -> int:
-        return ability_modifier(self.constitution)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def intelligence_modifier(self) -> int:
-        return ability_modifier(self.intelligence)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def wisdom_modifier(self) -> int:
-        return ability_modifier(self.wisdom)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def charisma_modifier(self) -> int:
-        return ability_modifier(self.charisma)
+        Args:
+            effective_scores: Optional dict of ability name -> effective score
+                (after equipment modifiers). If None, effective = base.
+        """
+        scores = {}
+        for name in ABILITY_NAMES:
+            base = getattr(self, name)
+            effective = effective_scores.get(name, base) if effective_scores else base
+            scores[name] = AbilityScoreDetail(
+                base=base,
+                effective=effective,
+                modifier=ability_modifier(effective),
+            )
+        self.ability_scores = scores
 
 
 class CharacterUpdate(SQLModel):
@@ -195,10 +201,10 @@ class CharacterUpdate(SQLModel):
 
     name: str | None = Field(default=None, min_length=1)
     race: str | None = None
-    char_class: str | None = None
-    hp_max: int | None = Field(default=None, ge=0)
-    hp_current: int | None = Field(default=None, ge=0)
-    ac: int | None = Field(default=None, ge=0)
+    character_class: str | None = None
+    max_hp: int | None = Field(default=None, ge=0)
+    current_hp: int | None = None
+    base_ac: int | None = Field(default=None, ge=0)
     speed: int | None = Field(default=None, ge=0)
     xp: int | None = Field(default=None, ge=0)
     strength: int | None = Field(default=None, ge=1, le=30)
