@@ -6,6 +6,12 @@ from app.models.character import (
     CharacterRead,
     CharacterUpdate,
 )
+from app.models.character_item import (
+    CharacterItem,
+    CharacterItemCreate,
+    CharacterItemRead,
+    CharacterItemUpdate,
+)
 from app.models.currency import (
     CurrencyConvert,
     CurrencyDenomination,
@@ -43,6 +49,10 @@ __all__ = [
     "Character",
     "CharacterCreate",
     "CharacterRead",
+    "CharacterItem",
+    "CharacterItemCreate",
+    "CharacterItemRead",
+    "CharacterItemUpdate",
     "CharacterUpdate",
     "CurrencyConvert",
     "CurrencyDenomination",
