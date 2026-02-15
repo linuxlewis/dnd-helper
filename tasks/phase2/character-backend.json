@@ -20,7 +20,7 @@
         "All existing tests still pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "See tasks/prd-character-sheets.md for full XP threshold table. Ability scores default to 10, XP defaults to 0."
     },
     {
@@ -40,7 +40,7 @@
         "All existing tests still pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The character_id FK references the characters table. stat_modifiers are additive (+2 STR), stat_overrides set a stat to a fixed value (STR becomes 19). Both are optional JSON columns."
     },
     {
@@ -60,7 +60,7 @@
         "All existing tests still pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same auth pattern as the existing inventory/items routers. Use the auth dependency from core/auth.py."
     },
     {
@@ -79,7 +79,7 @@
         "All existing tests still pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Equip/unequip are simple toggles on is_equipped. No slot validation needed."
     },
     {
@@ -98,7 +98,7 @@
         "All existing tests still pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "CharacterRead should return ability_scores dict with {strength: {base, effective, modifier}, ...} structure. See tasks/prd-character-sheets.md for full resolution order."
     },
     {
@@ -116,7 +116,7 @@
         "Ruff check passes on backend"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same test patterns as test_items.py and test_inventories.py. Use the existing conftest.py fixtures."
     }
   ]

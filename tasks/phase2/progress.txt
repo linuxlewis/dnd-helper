@@ -5,3 +5,58 @@ Started: Sun Feb 15 16:45:57 CST 2026
 ## Codebase Patterns
 
 ---
+
+## 2026-02-15 - CS-001: Character model and database table
+- Renamed fields to match PRD: char_class→character_class, hp_max→max_hp, hp_current→current_hp, ac→base_ac
+- Added AbilityScoreDetail schema with base/effective/modifier structure
+- Added build_ability_scores() method and effective_ac computed field to CharacterRead
+- Added ABILITY_NAMES constant for iteration
+- Exported Character models from models/__init__.py
+- Imported Character in main.py for table auto-creation
+- Files changed: app/models/character.py, app/models/__init__.py, app/main.py
+- All 61 existing tests pass, ruff check clean
+---
+
+## 2026-02-15 - CS-002: CharacterItem model
+- Created CharacterItem model mirroring Item but with character_id FK instead of inventory_id
+- Added is_equipped bool (default False), stat_modifiers (dict[str,int]|None), stat_overrides (dict[str,int]|None) as JSON columns
+- Created CharacterItemBase, CharacterItem, CharacterItemCreate, CharacterItemRead, CharacterItemUpdate schemas
+- Reuses ItemType and ItemRarity enums from item model
+- Files changed: app/models/character_item.py (new), app/models/__init__.py, app/main.py
+- All 61 existing tests pass, ruff check clean
+---
+
+## 2026-02-15 - CS-003: Character CRUD API endpoints
+- Created characters router with GET list, POST create, GET single, PATCH update, DELETE endpoints
+- All under /api/inventories/{slug}/characters with X-Passphrase auth
+- Delete cascades to character items
+- CharacterRead response includes computed level, proficiency_bonus, xp_to_next_level, ability_scores
+- Files changed: app/routers/characters.py (new), app/routers/__init__.py, app/main.py
+- All 61 existing tests pass, ruff check clean
+---
+
+## 2026-02-15 - CS-004: Character items API endpoints
+- Added GET/POST/PATCH/DELETE character item endpoints plus POST equip/unequip toggles
+- Refactored router to use _get_character_or_404 helper for DRY auth+character lookup
+- Files changed: app/routers/characters.py
+- All 61 existing tests pass, ruff check clean
+---
+
+## 2026-02-15 - CS-005: Computed stats with equipment modifiers
+- Added compute_effective_stats() function with PRD resolution: base → highest override (if > base) → additive modifiers
+- Changed effective_ac from computed_field to regular field set by build_ability_scores()
+- Added _build_character_read() router helper that fetches equipped items and computes stats
+- All character GET endpoints now return accurate ability_scores and effective_ac
+- Files changed: app/models/character.py, app/routers/characters.py
+- All 61 existing tests pass, ruff check clean
+---
+
+## 2026-02-15 - CS-006: Character API tests
+- 51 tests covering all character and character item endpoints
+- Tests: create/get/list/update/delete character, add/list/update/delete items, equip/unequip
+- Tests: stat override + modifier resolution, effective_ac, unequipped items excluded
+- Tests: XP boundaries parametrized (0, 299, 300, 899, 900, ..., 355000, 999999)
+- Tests: auth required (401 without passphrase) on all endpoints
+- Files changed: tests/test_characters.py (new)
+- All 112 tests pass (61 existing + 51 new), ruff check clean
+---
