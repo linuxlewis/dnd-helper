@@ -141,6 +141,60 @@ class AbilityScoreDetail(SQLModel):
     modifier: int
 
 
+def compute_effective_stats(
+    character: "Character",
+    equipped_items: list,
+) -> tuple[dict[str, int], int]:
+    """Compute effective ability scores and AC from equipped items.
+
+    Resolution order per the PRD:
+    1. Start with base stat
+    2. Apply overrides — take highest override if > base
+    3. Add all additive modifiers on top
+
+    Returns:
+        (effective_scores dict, effective_ac)
+    """
+    # Collect all overrides and modifiers from equipped items
+    all_overrides: dict[str, list[int]] = {}
+    all_modifiers: dict[str, int] = {}
+
+    for item in equipped_items:
+        if item.stat_overrides:
+            for stat, value in item.stat_overrides.items():
+                all_overrides.setdefault(stat, []).append(value)
+        if item.stat_modifiers:
+            for stat, value in item.stat_modifiers.items():
+                all_modifiers[stat] = all_modifiers.get(stat, 0) + value
+
+    # Compute effective ability scores
+    effective_scores = {}
+    for name in ABILITY_NAMES:
+        base = getattr(character, name)
+        # Step 2: apply highest override if > base
+        effective = base
+        if name in all_overrides:
+            highest_override = max(all_overrides[name])
+            if highest_override > base:
+                effective = highest_override
+        # Step 3: add modifiers
+        if name in all_modifiers:
+            effective += all_modifiers[name]
+        effective_scores[name] = effective
+
+    # Compute effective AC
+    base_ac = character.base_ac
+    effective_ac = base_ac
+    if "ac" in all_overrides:
+        highest_override = max(all_overrides["ac"])
+        if highest_override > base_ac:
+            effective_ac = highest_override
+    if "ac" in all_modifiers:
+        effective_ac += all_modifiers["ac"]
+
+    return effective_scores, effective_ac
+
+
 class CharacterRead(CharacterBase):
     """Schema for character response with computed fields."""
 
@@ -151,6 +205,9 @@ class CharacterRead(CharacterBase):
 
     # Structured ability scores (base, effective, modifier)
     ability_scores: dict[str, AbilityScoreDetail] | None = None
+
+    # Effective AC after equipment (set by build_ability_scores)
+    effective_ac: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -172,17 +229,16 @@ class CharacterRead(CharacterBase):
             return None
         return XP_FOR_LEVEL[lvl + 1] - self.xp
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def effective_ac(self) -> int:
-        return self.base_ac
-
-    def build_ability_scores(self, effective_scores: dict[str, int] | None = None) -> None:
-        """Populate ability_scores dict with base/effective/modifier for each ability.
+    def build_ability_scores(
+        self,
+        effective_scores: dict[str, int] | None = None,
+        effective_ac: int | None = None,
+    ) -> None:
+        """Populate ability_scores and effective_ac from equipment modifiers.
 
         Args:
-            effective_scores: Optional dict of ability name -> effective score
-                (after equipment modifiers). If None, effective = base.
+            effective_scores: Dict of ability name -> effective score after equipment.
+            effective_ac: Effective AC after equipment. Defaults to base_ac.
         """
         scores = {}
         for name in ABILITY_NAMES:
@@ -194,6 +250,7 @@ class CharacterRead(CharacterBase):
                 modifier=ability_modifier(effective),
             )
         self.ability_scores = scores
+        self.effective_ac = effective_ac if effective_ac is not None else self.base_ac
 
 
 class CharacterUpdate(SQLModel):

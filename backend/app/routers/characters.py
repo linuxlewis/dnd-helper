@@ -19,6 +19,7 @@ from app.models import (
     CharacterRead,
     CharacterUpdate,
 )
+from app.models.character import compute_effective_stats
 
 router = APIRouter(prefix="/api/inventories", tags=["characters"])
 
@@ -46,6 +47,28 @@ async def _get_character_or_404(
     return inventory, character
 
 
+async def _build_character_read(
+    character: Character,
+    db: AsyncSession,
+) -> CharacterRead:
+    """Build a CharacterRead with computed stats from equipped items."""
+    # Fetch equipped items
+    result = await db.execute(
+        select(CharacterItem).where(
+            CharacterItem.character_id == character.id,
+            CharacterItem.is_equipped.is_(True),
+        )
+    )
+    equipped_items = list(result.scalars().all())
+
+    # Compute effective stats
+    effective_scores, effective_ac = compute_effective_stats(character, equipped_items)
+
+    read = CharacterRead.model_validate(character)
+    read.build_ability_scores(effective_scores, effective_ac)
+    return read
+
+
 # --- Character CRUD ---
 
 
@@ -67,8 +90,7 @@ async def list_characters(
 
     reads = []
     for char in characters:
-        read = CharacterRead.model_validate(char)
-        read.build_ability_scores()
+        read = await _build_character_read(char, db)
         reads.append(read)
     return reads
 
@@ -90,9 +112,7 @@ async def create_character(
     await db.commit()
     await db.refresh(character)
 
-    read = CharacterRead.model_validate(character)
-    read.build_ability_scores()
-    return read
+    return await _build_character_read(character, db)
 
 
 @router.get("/{slug}/characters/{character_id}", response_model=CharacterRead)
@@ -105,9 +125,7 @@ async def get_character(
     """Get a character with computed stats."""
     _, character = await _get_character_or_404(slug, character_id, db, x_passphrase)
 
-    read = CharacterRead.model_validate(character)
-    read.build_ability_scores()
-    return read
+    return await _build_character_read(character, db)
 
 
 @router.patch("/{slug}/characters/{character_id}", response_model=CharacterRead)
@@ -131,9 +149,7 @@ async def update_character(
     await db.commit()
     await db.refresh(character)
 
-    read = CharacterRead.model_validate(character)
-    read.build_ability_scores()
-    return read
+    return await _build_character_read(character, db)
 
 
 @router.delete("/{slug}/characters/{character_id}", status_code=204)
