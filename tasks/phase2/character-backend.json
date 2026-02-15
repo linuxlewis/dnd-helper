@@ -30,6 +30,8 @@
       "acceptanceCriteria": [
         "CharacterItem model exists in backend/app/models/character_item.py",
         "Has same fields as Item (name, type, category, rarity, description, quantity, weight, estimated_value, notes, thumbnail_url, is_standard_item, standard_item_id, properties) plus character_id FK and is_equipped bool",
+        "Has stat_modifiers field (dict[str, int] | None) for additive bonuses like {\"strength\": 2, \"ac\": 2}",
+        "Has stat_overrides field (dict[str, int] | None) for fixed value sets like {\"strength\": 19}",
         "CharacterItemBase, CharacterItem (table=True), CharacterItemCreate, CharacterItemRead, CharacterItemUpdate schemas exist",
         "is_equipped defaults to False",
         "CharacterItem is exported from models/__init__.py",
@@ -39,7 +41,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "notes": "The character_id FK references the characters table."
+      "notes": "The character_id FK references the characters table. stat_modifiers are additive (+2 STR), stat_overrides set a stat to a fixed value (STR becomes 19). Both are optional JSON columns."
     },
     {
       "id": "CS-003",
@@ -85,17 +87,19 @@
       "title": "Computed stats with equipment modifiers",
       "description": "When returning a character via GET, compute effective stats by applying stat_modifiers from all equipped items.",
       "acceptanceCriteria": [
-        "GET /api/inventories/{slug}/characters/{id} returns effective_strength, effective_dexterity, effective_constitution, effective_intelligence, effective_wisdom, effective_charisma, effective_ac",
-        "Effective stat = base stat + sum of stat_modifiers from equipped items",
-        "Equipment modifiers come from item properties.stat_modifiers dict (e.g. {\"strength\": 2, \"ac\": 5})",
-        "Items with no stat_modifiers or unequipped items don't affect stats",
+        "GET /api/inventories/{slug}/characters/{id} returns for each ability: base score, effective score, and modifier (floor((effective-10)/2))",
+        "Stat resolution: 1) start with base, 2) apply highest stat_override if > base, 3) add all stat_modifiers on top",
+        "Example: base STR 12 + override 19 + modifier +1 = effective 20, modifier +5",
+        "effective_ac follows same resolution (base_ac, overrides, then additive modifiers)",
+        "Only equipped items contribute to computed stats",
+        "Items with no stat_modifiers/stat_overrides or unequipped items don't affect stats",
         "Ability modifiers are computed from effective scores, not base scores",
         "Ruff check passes on backend",
         "All existing tests still pass"
       ],
       "priority": 5,
       "passes": false,
-      "notes": "The CharacterRead schema should include both base and effective stats. Modifiers use floor((effective_score - 10) / 2)."
+      "notes": "CharacterRead should return ability_scores dict with {strength: {base, effective, modifier}, ...} structure. See tasks/prd-character-sheets.md for full resolution order."
     },
     {
       "id": "CS-006",

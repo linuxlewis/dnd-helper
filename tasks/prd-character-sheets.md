@@ -83,23 +83,45 @@ A `CharacterItem` has an additional field:
 
 When equipped, if the item's `properties` dict contains `stat_modifiers`, those are applied to compute effective stats.
 
-Example `properties.stat_modifiers`:
+Each CharacterItem has two optional dicts for stat effects:
+
+**`stat_modifiers`** — Additive bonuses (e.g. +2 STR):
 ```json
-{
-  "stat_modifiers": {
-    "strength": 2,
-    "ac": 5
-  }
-}
+{"stat_modifiers": {"strength": 2, "ac": 2}}
 ```
+
+**`stat_overrides`** — Set stat to a fixed value (e.g. Gauntlets of Ogre Power):
+```json
+{"stat_overrides": {"strength": 19}}
+```
+
+### Stat Resolution Order
+
+1. Start with **base stat**
+2. Apply **overrides** — if multiple items override the same stat, take the highest value. Only apply if override > base.
+3. Apply all **additive modifiers** on top
+
+Example: Base STR 12, Gauntlets of Ogre Power (override 19), +1 STR ring (modifier +1)
+→ max(12, 19) = 19, then 19 + 1 = 20
 
 ### Computed Stats (returned by API, not stored)
 
-- `effective_strength` = base strength + sum of equipped item str modifiers
-- Same for all 6 ability scores
-- `effective_ac` = base_ac + sum of equipped item ac modifiers
-- Ability modifiers = floor((score - 10) / 2)
+For each of the 6 ability scores, the API returns:
+- **base** — the raw score set on the character
+- **effective** — after equipment overrides + modifiers
+- **modifier** — floor((effective - 10) / 2)
+
+Additional computed fields:
+- `effective_ac` = base_ac + sum of equipped item ac modifiers (or highest ac override + modifiers)
+- `level` = derived from XP using 5e thresholds
+- `proficiency_bonus` = derived from level
 - `xp_to_next_level` = next threshold - current XP (null at level 20)
+
+### Item Stat Display
+
+Each item in a character's inventory should expose its stat impact for display:
+- Additive modifiers shown as "+2 STR", "+1 AC"
+- Overrides shown as "Sets STR to 19"
 
 ## API Endpoints
 
