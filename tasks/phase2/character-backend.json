@@ -1,0 +1,119 @@
+{
+  "project": "dnd-inventory-manager",
+  "branchName": "ralph/character-sheets-backend",
+  "description": "Backend for character sheet management: models, API endpoints, computed stats with equipment modifiers, XP-based leveling",
+  "userStories": [
+    {
+      "id": "CS-001",
+      "title": "Character model and database table",
+      "description": "Create the Character SQLModel with base ability scores, XP, HP, AC, speed, and computed properties for level, proficiency bonus, and ability modifiers. Add migration/table creation.",
+      "acceptanceCriteria": [
+        "Character model exists in backend/app/models/character.py with all fields from PRD",
+        "CharacterBase, Character (table=True), CharacterCreate, CharacterRead, CharacterUpdate schemas exist",
+        "Level is computed from XP using 5e thresholds (0=L1, 300=L2, 900=L3, etc up to 355000=L20)",
+        "Proficiency bonus is computed from level (L1-4=+2, L5-8=+3, L9-12=+4, L13-16=+5, L17-20=+6)",
+        "Ability modifiers computed as floor((score - 10) / 2)",
+        "CharacterRead includes computed fields: level, proficiency_bonus, xp_to_next_level, and ability modifiers",
+        "Character is exported from models/__init__.py",
+        "Table is created on startup (add to database.py create_all)",
+        "Ruff check passes on backend",
+        "All existing tests still pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "See tasks/prd-character-sheets.md for full XP threshold table. Ability scores default to 10, XP defaults to 0."
+    },
+    {
+      "id": "CS-002",
+      "title": "CharacterItem model",
+      "description": "Create CharacterItem model that mirrors the existing Item model but belongs to a character instead of an inventory. Adds is_equipped boolean field.",
+      "acceptanceCriteria": [
+        "CharacterItem model exists in backend/app/models/character_item.py",
+        "Has same fields as Item (name, type, category, rarity, description, quantity, weight, estimated_value, notes, thumbnail_url, is_standard_item, standard_item_id, properties) plus character_id FK and is_equipped bool",
+        "CharacterItemBase, CharacterItem (table=True), CharacterItemCreate, CharacterItemRead, CharacterItemUpdate schemas exist",
+        "is_equipped defaults to False",
+        "CharacterItem is exported from models/__init__.py",
+        "Table is created on startup",
+        "Ruff check passes on backend",
+        "All existing tests still pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "The character_id FK references the characters table."
+    },
+    {
+      "id": "CS-003",
+      "title": "Character CRUD API endpoints",
+      "description": "Create router with CRUD endpoints for characters within a party inventory. Uses same X-Passphrase auth as inventory endpoints.",
+      "acceptanceCriteria": [
+        "Router exists at backend/app/routers/characters.py",
+        "GET /api/inventories/{slug}/characters returns list of characters",
+        "POST /api/inventories/{slug}/characters creates a character",
+        "GET /api/inventories/{slug}/characters/{id} returns character with computed stats",
+        "PATCH /api/inventories/{slug}/characters/{id} updates character fields",
+        "DELETE /api/inventories/{slug}/characters/{id} deletes character and its items",
+        "All endpoints require valid X-Passphrase header",
+        "Router is registered in main.py",
+        "Ruff check passes on backend",
+        "All existing tests still pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Follow the same auth pattern as the existing inventory/items routers. Use the auth dependency from core/auth.py."
+    },
+    {
+      "id": "CS-004",
+      "title": "Character items API endpoints",
+      "description": "Create endpoints for managing a character's personal inventory items, including equip/unequip.",
+      "acceptanceCriteria": [
+        "GET /api/inventories/{slug}/characters/{id}/items returns character's items",
+        "POST /api/inventories/{slug}/characters/{id}/items adds item to character",
+        "PATCH /api/inventories/{slug}/characters/{id}/items/{item_id} updates character item",
+        "DELETE /api/inventories/{slug}/characters/{id}/items/{item_id} removes item",
+        "POST /api/inventories/{slug}/characters/{id}/items/{item_id}/equip sets is_equipped=True",
+        "POST /api/inventories/{slug}/characters/{id}/items/{item_id}/unequip sets is_equipped=False",
+        "All endpoints require valid X-Passphrase header",
+        "Ruff check passes on backend",
+        "All existing tests still pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Equip/unequip are simple toggles on is_equipped. No slot validation needed."
+    },
+    {
+      "id": "CS-005",
+      "title": "Computed stats with equipment modifiers",
+      "description": "When returning a character via GET, compute effective stats by applying stat_modifiers from all equipped items.",
+      "acceptanceCriteria": [
+        "GET /api/inventories/{slug}/characters/{id} returns effective_strength, effective_dexterity, effective_constitution, effective_intelligence, effective_wisdom, effective_charisma, effective_ac",
+        "Effective stat = base stat + sum of stat_modifiers from equipped items",
+        "Equipment modifiers come from item properties.stat_modifiers dict (e.g. {\"strength\": 2, \"ac\": 5})",
+        "Items with no stat_modifiers or unequipped items don't affect stats",
+        "Ability modifiers are computed from effective scores, not base scores",
+        "Ruff check passes on backend",
+        "All existing tests still pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The CharacterRead schema should include both base and effective stats. Modifiers use floor((effective_score - 10) / 2)."
+    },
+    {
+      "id": "CS-006",
+      "title": "Character API tests",
+      "description": "Write tests for all character and character item endpoints.",
+      "acceptanceCriteria": [
+        "Test file exists at backend/tests/test_characters.py",
+        "Tests cover: create character, get character, list characters, update character, delete character",
+        "Tests cover: add item to character, list character items, update character item, delete character item",
+        "Tests cover: equip item, unequip item, computed stats with equipment modifiers",
+        "Tests cover: XP to level computation (test boundaries like 0, 300, 899, 900, 355000)",
+        "Tests verify auth is required (401 without passphrase)",
+        "All tests pass with uv run pytest tests/ -v",
+        "Ruff check passes on backend"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Follow the same test patterns as test_items.py and test_inventories.py. Use the existing conftest.py fixtures."
+    }
+  ]
+}
