@@ -44,7 +44,7 @@ function EditItemForm({ item, slug, onClose }: EditItemFormProps) {
   const [rarity, setRarity] = useState<ItemRarity>(item.rarity)
   const [description, setDescription] = useState(item.description || '')
   const [notes, setNotes] = useState(item.notes || '')
-  const [quantity, setQuantity] = useState(item.quantity)
+  const [quantityInput, setQuantityInput] = useState(String(item.quantity))
   const [weight, setWeight] = useState<number | ''>(item.weight ?? '')
   const [estimatedValue, setEstimatedValue] = useState<number | ''>(item.estimated_value ?? '')
 
@@ -56,6 +56,9 @@ function EditItemForm({ item, slug, onClose }: EditItemFormProps) {
       setFormError('Name is required')
       return
     }
+
+    const parsedQuantity = Number.parseInt(quantityInput, 10)
+    const quantity = Number.isNaN(parsedQuantity) ? 1 : Math.max(1, parsedQuantity)
 
     const itemData: ItemUpdate = {
       name: name.trim(),
@@ -176,8 +179,8 @@ function EditItemForm({ item, slug, onClose }: EditItemFormProps) {
               id="edit-item-quantity"
               type="number"
               min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              value={quantityInput}
+              onChange={(e) => setQuantityInput(e.target.value)}
               className="w-full px-3 py-2 bg-gray-700 text-gray-100 placeholder-gray-400 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-gray-800"
             />
           </div>
