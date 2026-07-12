@@ -1,0 +1,78 @@
+name: Deploy Local Production
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dnd-inventory-manager-local-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, dev-server-1, dnd-inventory-manager, production]
+    environment: local-production
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve deployment revision
+        id: revision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            deploy_sha="${{ github.event.workflow_run.head_sha }}"
+          else
+            deploy_sha="${{ github.sha }}"
+          fi
+
+          if [ -z "$deploy_sha" ]; then
+            echo "::error::Could not resolve deployment revision."
+            exit 1
+          fi
+
+          printf 'sha=%s\n' "$deploy_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy exact revision through host Docker
+        shell: bash
+        env:
+          GH_FETCH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          deploy_sha="${{ steps.revision.outputs.sha }}"
+          workspace="/home/sbolgert/workspace/dnd-inventory-manager"
+          compose=(docker compose -f docker-compose.yml)
+
+          cd "$workspace"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Production workspace has uncommitted changes; refusing to deploy."
+            git status --short
+            exit 1
+          fi
+
+          git fetch "https://x-access-token:${GH_FETCH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "+refs/heads/*:refs/remotes/origin/*"
+          git checkout --detach "$deploy_sha"
+
+          "${compose[@]}" up -d --build
+
+          for _ in {1..12}; do
+            if "${compose[@]}" exec -T app curl --fail --silent --show-error http://127.0.0.1/health; then
+              break
+            fi
+
+            sleep 5
+          done
+
+          "${compose[@]}" exec -T app curl --fail --silent --show-error http://127.0.0.1/health
+          curl --fail --retry 6 --retry-delay 5 http://host.docker.internal:8080/health
+          curl --fail --retry 6 --retry-delay 5 -I https://dndinventorymanager.com
