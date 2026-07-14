@@ -178,8 +178,7 @@ The `.env.local` files are **gitignored** and auto-generated. Each worktree gets
 **Production uses fixed ports:**
 | Service | Port |
 |---------|------|
-| Backend | 9000 |
-| Frontend | 9080 |
+| Docker app | 8080 |
 
 ### Troubleshooting
 
@@ -196,40 +195,56 @@ rm backend/.env.local frontend/.env.local
 
 ## Production Deployment (Docker)
 
+### Production Safety for Agents
+
+Treat any running container named `dnd-inventory-manager` as live production unless the user explicitly says otherwise. Do not use the production Docker container, production data mount, production port, or existing Tailscale Serve config as a test environment.
+
+Before running Docker or Tailscale commands for this app, check what is already running:
+
+```bash
+docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'
+docker inspect dnd-inventory-manager --format '{{json .Mounts}}'
+tailscale serve status
+```
+
+If the container uses `/home/sbolgert/workspace/dnd-inventory-manager/data` or another real data directory, stop and treat it as production. Do not run `docker compose up`, `docker compose down`, or `tailscale serve` from a Codex worktree against that container.
+
+Preferred dev environments:
+- Use `./scripts/dev.sh` for local worktree development; it assigns non-production ports automatically.
+- For Tailscale device testing, use the README "Tailnet Dev Testing" workflow with Vite on `--host 0.0.0.0` and a worktree-specific frontend port.
+- If Docker is required for dev testing, use a separate Compose project, separate container name, separate data volume, and a non-production host port. Never reuse port `8080` or the `dnd-inventory-manager` container name for dev testing.
+
 ### Quick Start
 ```bash
-./scripts/prod-up.sh    # Build & start containers
-./scripts/prod-down.sh  # Stop containers
-./scripts/prod-logs.sh  # View logs
+docker compose up -d --build    # Build and start
+docker compose down             # Stop
+docker compose logs -f app      # View logs
 ```
 
 ### Access URLs
-- **Local:** http://localhost:9080
-- **Tailscale:** http://<tailscale-ip>:9080 (from phone/other devices)
+- **Local:** http://localhost:8080
+- **Tailscale:** http://<tailscale-ip>:8080 (from phone/other devices)
 
 ### Architecture
 ```
-Phone/Device (Tailscale) → Frontend (nginx:9080) → Backend (uvicorn:9000)
-                                    ↓
-                           /api/* proxy to backend
+Phone/Device (Tailscale) → Host port 8080 → nginx in container → uvicorn on 127.0.0.1:8000
+                                                    ↓
+                                           /api/* proxy to backend
 ```
 
 ### Key Files
 - `docker-compose.yml` — Service definitions
-- `backend/Dockerfile` — Python 3.12 + UV
-- `frontend/Dockerfile` — Bun build → nginx:alpine
-- `frontend/nginx.conf` — SPA routing + API proxy
-- `.env.docker` — Production environment variables
-- `docs/TAILNET_ACCESS.md` — Full Tailscale setup guide
+- `Dockerfile` — Bun frontend build + Python/nginx runtime
+- `data/` — production SQLite data when using the default Compose bind mount
 
 ### Development vs Production
 
 | Aspect | Development | Production |
 |--------|-------------|------------|
-| Command | `./scripts/dev.sh` | `./scripts/prod-up.sh` |
+| Command | `./scripts/dev.sh` | `docker compose up -d --build` |
 | Backend | uvicorn with --reload | Docker container |
 | Frontend | Vite dev server | nginx serving built files |
-| Ports | 8000-8099, 5173-5199 | 9000, 9080 |
+| Ports | 8000-8099, 5173-5199 | 8080 |
 | Hot reload | Yes | No (rebuild required) |
 
 ### Data Persistence

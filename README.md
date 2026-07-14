@@ -58,6 +58,39 @@ docker run -d -p 8080:80 \
 
 **Prerequisites:** [Bun](https://bun.sh/) (frontend) · [UV](https://github.com/astral-sh/uv) + Python 3.11+ (backend)
 
+### Local Dev Server
+
+The easiest local workflow is:
+
+```bash
+./scripts/dev.sh
+```
+
+This assigns available backend/frontend ports for the current worktree and starts both servers. It avoids the production Docker container and the fixed self-hosting port.
+
+### Tailnet Dev Testing
+
+For testing from a phone or another device over Tailscale, do not reuse the production Docker container on port `8080`. Start the dev servers on worktree-specific ports instead:
+
+```bash
+./scripts/dev-setup.sh
+
+# Terminal 1 - backend
+source backend/.env.local
+cd backend
+uv run uvicorn app.main:app --reload --port "$PORT"
+
+# Terminal 2 - frontend, from the repo root
+BACKEND_PORT=$(grep '^PORT=' backend/.env.local | cut -d= -f2)
+FRONTEND_PORT=$(grep '^VITE_PORT=' frontend/.env.local | cut -d= -f2)
+cd frontend
+VITE_API_URL="http://127.0.0.1:$BACKEND_PORT" bun run dev --host 0.0.0.0 --port "$FRONTEND_PORT"
+```
+
+Then open `http://<tailscale-ip>:$FRONTEND_PORT`. The frontend serves `/api` through the Vite proxy, so the backend can stay bound to localhost on the dev machine.
+
+### Manual Dev Servers
+
 ```bash
 # Backend
 cd backend && uv sync && uv run uvicorn app.main:app --reload --port 8000
