@@ -1,4 +1,17 @@
 # Pydantic/SQLModel schemas package
+from app.models.character import (
+    AbilityScoreDetail,
+    Character,
+    CharacterCreate,
+    CharacterRead,
+    CharacterUpdate,
+)
+from app.models.character_item import (
+    CharacterItem,
+    CharacterItemCreate,
+    CharacterItemRead,
+    CharacterItemUpdate,
+)
 from app.models.currency import (
     CurrencyConvert,
     CurrencyDenomination,
@@ -31,6 +44,16 @@ from app.models.item import (
 )
 
 __all__ = [
+    "AbilityScoreDetail",
+    "AuthResponse",
+    "Character",
+    "CharacterCreate",
+    "CharacterRead",
+    "CharacterItem",
+    "CharacterItemCreate",
+    "CharacterItemRead",
+    "CharacterItemUpdate",
+    "CharacterUpdate",
     "CurrencyConvert",
     "CurrencyDenomination",
     "CurrencyResponse",
@@ -41,16 +64,15 @@ __all__ = [
     "HistoryEntryRead",
     "HistoryListResponse",
     "Inventory",
+    "InventoryAuth",
     "InventoryCreate",
     "InventoryRead",
     "InventoryUpdate",
-    "InventoryAuth",
-    "AuthResponse",
     "Item",
     "ItemCreate",
-    "ItemRead",
-    "ItemUpdate",
     "ItemListResponse",
-    "ItemType",
     "ItemRarity",
+    "ItemRead",
+    "ItemType",
+    "ItemUpdate",
 ]

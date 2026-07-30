@@ -8,11 +8,14 @@ from app.config import settings
 from app.database import init_db
 from app.logging_config import setup_logging
 from app.models import (  # noqa: F401 - import to register with SQLModel metadata
+    Character,
+    CharacterItem,
     HistoryEntry,
     Inventory,
     Item,
 )
 from app.routers import (
+    characters_router,
     currency_router,
     history_router,
     inventories_router,
@@ -47,6 +50,7 @@ app.include_router(inventories_router)
 app.include_router(items_router)
 app.include_router(currency_router)
 app.include_router(history_router)
+app.include_router(characters_router)
 
 
 @app.get("/health")
